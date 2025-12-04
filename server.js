@@ -11,6 +11,7 @@ const chatAdminRutas = require('./Rutas/chatAdminRutas');
 const carritoRutas = require('./Rutas/carrito.routes');
 const cuponesRutas = require("./Rutas/cuponesRutas");
 const notaRutas = require('./Rutas/nota.routes');
+const tarifasRutas = require('./Rutas/tarifas.routes');
 const pool = require('./DB/conexion');
 const fs = require("fs");
 const path = require("path");
@@ -59,6 +60,8 @@ app.use('/api/correo', correoRutas);
 app.use('/api/captcha', captchaRutas);
 app.use('/api/chat', chatRutas);
 app.use('/api/chat-admin', chatAdminRutas);
+app.use('/api/tarifas', tarifasRutas);
+
 // Probar conexión a BD
 async function testConnection() {
   try {
@@ -88,7 +91,7 @@ async function ensureCarritoNombreImagenColumn() {
 app.use(express.static(clientDir));
 
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor en http://localhost:${PORT}`);
-  testConnection();
-  ensureCarritoNombreImagenColumn();
+  console.log(`🚀 Servidor en https://ecommerce-api-soundspace.onrender.com`);
+  //testConnection();
+  //ensureCarritoNombreImagenColumn();
 });

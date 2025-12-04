@@ -25,8 +25,8 @@ exports.enviarNotaCompra = async (req, res) => {
   if (!usuario_id) return res.status(400).json({ success: false, message: 'usuario_id es requerido' });
 
   try {
-    // 1) Obtener datos del usuario
-    const [userRows] = await pool.query('SELECT id, nombreCompleto, correo FROM usuarios WHERE id = ?', [usuario_id]);
+    // 1) Obtener datos del usuario (incluyendo país)
+    const [userRows] = await pool.query('SELECT id, nombreCompleto, correo, pais FROM usuarios WHERE id = ?', [usuario_id]);
     const user = userRows[0];
 
     if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
@@ -50,23 +50,27 @@ exports.enviarNotaCompra = async (req, res) => {
       subtotal += unit * Number(i.cantidad || 1);
     });
 
-    // 4) Obtener tarifas según país (fallback a México)
-    const { pais } = req.body;
-    const paisReq = (typeof pais === 'string' && pais.trim() !== '') ? pais.trim() : 'México';
-    let impuestoRate = 0.16;
+    // 4) Obtener tarifas según país del usuario (fallback a México)
+    const paisUsuario = user.pais || 'México';
+    let impuestoPorcentaje = 16; // Guardar como porcentaje para mostrar
+    let impuestoRate = 0.16; // Guardar como decimal para calcular
     let envioFlat = 15.00;
 
     try {
       const [rows] = await pool.query(
         'SELECT impuesto, envio FROM tarifas_envio_impuestos WHERE pais = ?',
-        [paisReq]
+        [paisUsuario]
       );
       if (rows && rows.length > 0) {
-        impuestoRate = Number(rows[0].impuesto);
+        const impuestoValue = Number(rows[0].impuesto);
+        // Si el valor es > 1, asumir que es porcentaje (ej: 16), si no es decimal (ej: 0.16)
+        impuestoPorcentaje = impuestoValue > 1 ? impuestoValue : impuestoValue * 100;
+        impuestoRate = impuestoPorcentaje / 100;
         envioFlat = Number(rows[0].envio);
+        console.log(`✅ Tarifas encontradas para ${paisUsuario}:`, { impuestoPorcentaje, impuestoRate, envioFlat });
       } else {
         // no encontrado: dejar fallback y/o registrar
-        console.warn(`Tarifa para país "${paisReq}" no encontrada. Usando defaults.`);
+        console.warn(`Tarifa para país "${paisUsuario}" no encontrada. Usando defaults.`);
       }
     } catch (err) {
       console.error('Error consultando tarifas:', err.message);
@@ -125,7 +129,7 @@ exports.enviarNotaCompra = async (req, res) => {
     doc.moveDown();
     doc.fontSize(12).text(`Cliente: ${user.nombreCompleto || ''}`);
     doc.fontSize(12).text(`Email: ${user.correo || ''}`);
-    doc.fontSize(12).text(`País de Envío: ${paisReq}`);
+    doc.fontSize(12).text(`País de Envío: ${paisUsuario}`);
     
     // Table header
     doc.moveDown();
@@ -180,7 +184,7 @@ exports.enviarNotaCompra = async (req, res) => {
     doc.text(`Impuestos (${(impuestoRate * 100).toFixed(0)}%): ${fmt(impuestos)}`, { align: 'right' });
     doc.text(`Gastos de Envío: ${fmt(gastosEnvio)}`, { align: 'right' });
     if (cuponNombre) {
-        doc.text(`Cupón: ${cuponNombre} (-${fmt(cuponAplicado)})`, { align: 'right' });
+      doc.text(`Cupón: ${cuponNombre} (-${fmt(cuponAplicado)})`, { align: 'right' });
     }
     doc.moveDown(0.2);
     doc.fontSize(12).text(`Total: ${fmt(total)}`, { align: 'right', underline: true });

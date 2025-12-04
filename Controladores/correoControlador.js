@@ -2,7 +2,7 @@ const nodemailer = require("nodemailer");
 const fs = require("fs");
 const path = require("path");
 
-// ✅ TRANSPORTER CONFIG
+// TRANSPORTER CONFIG
 const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 587,
@@ -16,7 +16,7 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// ✅ CARGA DEL TEMPLATE HTML
+// CARGA DEL TEMPLATE HTML
 const loadTemplate = () => {
     return fs.readFileSync(
         path.join(__dirname, "../email.html"), // asegúrate que email.html esté aquí
@@ -24,7 +24,7 @@ const loadTemplate = () => {
     );
 };
 
-// ✅ SOLO CARGA LAS 5 IMÁGENES QUE QUIERES
+// SOLO CARGA LAS 5 IMÁGENES QUE QUIERES
 const loadImages = () => {
     const imgDir = path.join(__dirname, "../uploads");
 
@@ -48,7 +48,7 @@ exports.enviarContacto = async (req, res) => {
     const { nombre, email, telefono, asunto, mensaje } = req.body;
 
     // ✅ Print form data in console
-    console.log("📩 Nuevo mensaje recibido:");
+    console.log("Nuevo mensaje recibido:");
     console.log("Nombre:", nombre);
     console.log("Email:", email);
     console.log("Teléfono:", telefono);
@@ -66,17 +66,17 @@ exports.enviarContacto = async (req, res) => {
             .replace(/{{mensaje}}/g, mensaje);
 
         await transporter.sendMail({
-            from: `"Mi Empresa" <${process.env.CORREO_APP}>`,
+            from: `"SoundSpace" <${process.env.CORREO_APP}>`,
             to: email,
             subject: "En breve te atenderemos ✅",
             html,
             attachments: loadImages()
         });
 
-        res.json({ message: "Correo enviado correctamente ✔" });
+        res.json({ message: "Correo enviado correctamente " });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Error enviando correo ❌" });
+        res.status(500).json({ message: "Error enviando correo " });
     }
 };
 
@@ -110,7 +110,7 @@ exports.enviarSuscripcion = async (req, res) => {
 
   // Validación básica
   if (!email) {
-    return res.status(400).json({ message: "Correo requerido ❌" });
+    return res.status(400).json({ message: "Correo requerido " });
   }
 
   console.log("🟡 Nueva suscripción:", { email });
@@ -119,16 +119,16 @@ exports.enviarSuscripcion = async (req, res) => {
     let html = loadTemplate2(); // email2.html NO debe tener {{nombre}}
 
     await transporter.sendMail({
-      from: `"Mi Empresa" <${process.env.CORREO_APP}>`,
+      from: `"SoundSpace" <${process.env.CORREO_APP}>`,
       to: email,
-      subject: "¡Gracias por suscribirte! 🎉",
+      subject: "¡Gracias por suscribirte!",
       html,
       attachments: loadImages2()
     });
 
-    res.json({ message: "Correo de suscripción enviado ✔" });
+    res.json({ message: "Correo de suscripción enviado " });
   } catch (error) {
     console.error("Error enviando suscripción:", error);
-    res.status(500).json({ message: "Error enviando correo ❌" });
+    res.status(500).json({ message: "Error enviando correo " });
   }
 };

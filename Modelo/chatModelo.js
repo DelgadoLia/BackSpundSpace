@@ -23,7 +23,7 @@ class chatModelo {
         return results;
     }
 
-    // 👇 NECESARIO PARA ADMIN (este era el que fallaba)
+    // NECESARIO PARA ADMIN (este era el que fallaba)
     static async obtenerTodosMensajes() {
         const sql = `
             SELECT m.*, u.nombreUsuario, u.nombreCompleto
@@ -35,7 +35,7 @@ class chatModelo {
         return results;
     }
 
-    // 👇 ADMIN RESPONDE MENSAJE
+    // ADMIN RESPONDE MENSAJE
     static async responderMensaje(id, respuesta) {
         const sql = `
             UPDATE mensajes 

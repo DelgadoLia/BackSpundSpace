@@ -1,3 +1,4 @@
+// Modelo/usuarioModelo.js
 const pool = require("../DB/conexion");
 
 async function crearUsuario(nombreCompleto, nombreUsuario, pais, contrasena, palabra, correo) {
@@ -18,11 +19,17 @@ async function crearUsuario(nombreCompleto, nombreUsuario, pais, contrasena, pal
 }
 
 async function getUsuarioPorNombre(nombreUsuario) {
-    const [rows] = await pool.query("SELECT * FROM usuarios WHERE nombreUsuario = ?",[nombreUsuario]);
+    const [rows] = await pool.query("SELECT * FROM usuarios WHERE nombreUsuario = ?", [nombreUsuario]);
     return rows[0];
 }
 
-//Aumentar intento fallido
+// Nuevo método: Obtener usuario por ID
+async function getUsuarioPorId(id) {
+    const [rows] = await pool.query("SELECT * FROM usuarios WHERE id = ?", [id]);
+    return rows[0];
+}
+
+// Aumentar intento fallido
 async function aumentarIntentoFallido(id) {
     await pool.query(
         "UPDATE usuarios SET intentosFallidos = intentosFallidos + 1 WHERE id = ?",
@@ -30,7 +37,7 @@ async function aumentarIntentoFallido(id) {
     );
 }
 
-//Bloquear por 5 minutos
+// Bloquear por 5 minutos
 async function bloquearCuenta(id) {
     await pool.query(
         "UPDATE usuarios SET bloqueadoHasta = DATE_ADD(NOW(), INTERVAL 5 MINUTE) WHERE id = ?",
@@ -38,7 +45,7 @@ async function bloquearCuenta(id) {
     );
 }
 
-//Reiniciar contador
+// Reiniciar contador
 async function reiniciarIntentos(id) {
     await pool.query(
         "UPDATE usuarios SET intentosFallidos = 0, bloqueadoHasta = NULL WHERE id = ?",
@@ -46,7 +53,7 @@ async function reiniciarIntentos(id) {
     );
 }
 
-// usuarioModelo.js - VERSIÓN CORREGIDA
+// Actualizar contraseña
 async function updateContrasena(id, nuevaContrasena) {
     const [result] = await pool.query(
         "UPDATE usuarios SET contrasena = ? WHERE id = ?",
@@ -58,6 +65,7 @@ async function updateContrasena(id, nuevaContrasena) {
 module.exports = {
     crearUsuario,
     getUsuarioPorNombre,
+    getUsuarioPorId, // ← Nuevo método
     aumentarIntentoFallido,
     bloquearCuenta,
     reiniciarIntentos,
