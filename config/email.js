@@ -1,26 +1,16 @@
 const nodemailer = require('nodemailer');
 
-console.log("=== CONFIG/EMAIL.JS CARGADO ===");
-console.log("EMAIL_SERVICE:", process.env.EMAIL_SERVICE || "No definido (usando 'sendgrid' por defecto)");
-console.log("SENDGRID_API_KEY:", process.env.SENDGRID_API_KEY ? "✅ Existe" : "❌ No existe");
-console.log("EMAIL_USER:", process.env.EMAIL_USER || "No definido");
-console.log("CORREO_APP:", process.env.CORREO_APP || "No definido");
+console.log("=== CONFIG/EMAIL.JS CARGADO (GMAIL) ===");
+console.log("EMAIL_SERVICE:", process.env.EMAIL_SERVICE);
+console.log("EMAIL_USER:", process.env.EMAIL_USER || process.env.CORREO_APP);
+console.log("EMAIL_PASSWORD:", process.env.EMAIL_PASSWORD ? "✅ Definida" : "❌ No definida");
 
 const createTransporter = () => {
-  const service = process.env.EMAIL_SERVICE || 'sendgrid';
-  console.log(`\nCreando transporter para servicio: ${service}`);
+  const service = process.env.EMAIL_SERVICE || 'gmail';
+  console.log(`Creando transporter para: ${service}`);
   
   if (service === 'sendgrid') {
-    console.log("Configurando SendGrid...");
-    console.log("Host: smtp.sendgrid.net");
-    console.log("Port: 587");
-    console.log("User: apikey");
-    console.log("Pass:", process.env.SENDGRID_API_KEY ? "✅ Definida" : "❌ NO DEFINIDA - ESTE ES EL PROBLEMA");
-    
-    if (!process.env.SENDGRID_API_KEY) {
-      throw new Error("SENDGRID_API_KEY no está definida en las variables de entorno");
-    }
-    
+    // Mantener por compatibilidad
     return nodemailer.createTransport({
       host: 'smtp.sendgrid.net',
       port: 587,
@@ -28,27 +18,34 @@ const createTransporter = () => {
       auth: {
         user: 'apikey',
         pass: process.env.SENDGRID_API_KEY
-      },
-      tls: {
-        rejectUnauthorized: false
       }
     });
   }
   
-  console.log("Configurando Gmail (fallback)...");
+  // CONFIGURACIÓN GMAIL OPTIMIZADA PARA RENDER
   const user = process.env.EMAIL_USER || process.env.CORREO_APP;
   const pass = process.env.EMAIL_PASSWORD || process.env.PASS_APP;
   
-  console.log("User:", user || "No definido");
-  console.log("Pass:", pass ? "✅ Definida" : "❌ No definida");
+  console.log("Usuario Gmail:", user);
+  
+  if (!user || !pass) {
+    throw new Error('Faltan credenciales de Gmail. Verifica EMAIL_USER y EMAIL_PASSWORD');
+  }
   
   return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: process.env.EMAIL_PORT || 587,
-    secure: false,
+    service: 'gmail', // Esto automáticamente usa smtp.gmail.com:587
     auth: {
       user: user,
       pass: pass
+    },
+    // Configuraciones para evitar timeout en Render
+    pool: true,
+    maxConnections: 1,
+    maxMessages: 10,
+    socketTimeout: 10000, // 10 segundos
+    connectionTimeout: 10000, // 10 segundos
+    tls: {
+      rejectUnauthorized: false // Importante para Render
     }
   });
 };
