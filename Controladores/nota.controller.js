@@ -1,13 +1,9 @@
 const pool = require('../DB/conexion');
 const PDFDocument = require('pdfkit');
 const streamBuffers = require('stream-buffers');
-const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
-
-// Create transporter similar to correoControlador
-const { createTransporter } = require('../config/email'); // Agrega esta línea
-const transporter = createTransporter(); // Cambia esta línea
+const { sendEmailWithAttachment } = require('../config/resend'); // NUEVA IMPORTACIÓN
 
 // Helper: format currency
 function fmt(n) { return `$${Number(n).toFixed(2)}`; }
@@ -17,13 +13,17 @@ exports.enviarNotaCompra = async (req, res) => {
   if (!usuario_id) return res.status(400).json({ success: false, message: 'usuario_id es requerido' });
 
   try {
-    // 1) Obtener datos del usuario (incluyendo país)
+    console.log('=== INICIANDO NOTA DE COMPRA ===');
+    console.log('Usuario ID:', usuario_id);
+    console.log('EMAIL_SERVICE:', process.env.EMAIL_SERVICE || 'resend');
+
+    // 1) Obtener datos del usuario
     const [userRows] = await pool.query('SELECT id, nombreCompleto, correo, pais FROM usuarios WHERE id = ?', [usuario_id]);
     const user = userRows[0];
 
     if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
 
-    // 2) Obtener items del carrito para el usuario (incluye product_id para actualizar stock)
+    // 2) Obtener items del carrito
     const [items] = await pool.query(`
       SELECT c.id as carrito_id, c.producto_id, c.cantidad, c.nombre_imagen, p.titulo, p.precio, p.oferta, p.disponibilidad
       FROM carrito c
@@ -42,10 +42,10 @@ exports.enviarNotaCompra = async (req, res) => {
       subtotal += unit * Number(i.cantidad || 1);
     });
 
-    // 4) Obtener tarifas según país del usuario (fallback a México)
+    // 4) Obtener tarifas según país
     const paisUsuario = user.pais || 'México';
-    let impuestoPorcentaje = 16; // Guardar como porcentaje para mostrar
-    let impuestoRate = 0.16; // Guardar como decimal para calcular
+    let impuestoPorcentaje = 16;
+    let impuestoRate = 0.16;
     let envioFlat = 15.00;
 
     try {
@@ -55,18 +55,12 @@ exports.enviarNotaCompra = async (req, res) => {
       );
       if (rows && rows.length > 0) {
         const impuestoValue = Number(rows[0].impuesto);
-        // Si el valor es > 1, asumir que es porcentaje (ej: 16), si no es decimal (ej: 0.16)
         impuestoPorcentaje = impuestoValue > 1 ? impuestoValue : impuestoValue * 100;
         impuestoRate = impuestoPorcentaje / 100;
         envioFlat = Number(rows[0].envio);
-        console.log(`✅ Tarifas encontradas para ${paisUsuario}:`, { impuestoPorcentaje, impuestoRate, envioFlat });
-      } else {
-        // no encontrado: dejar fallback y/o registrar
-        console.warn(`Tarifa para país "${paisUsuario}" no encontrada. Usando defaults.`);
       }
     } catch (err) {
       console.error('Error consultando tarifas:', err.message);
-      // seguir con defaults
     }
 
     const impuestos = subtotal * impuestoRate;
@@ -74,8 +68,6 @@ exports.enviarNotaCompra = async (req, res) => {
 
     // 5) Aplicar cupon si viene
     const { cupon_codigo, cupon_descuento } = req.body;
-
-    // Aplicar cupón si existe
     let cuponNombre = null;
     let cuponAplicado = 0;
 
@@ -86,30 +78,31 @@ exports.enviarNotaCompra = async (req, res) => {
 
     const total = subtotal + impuestos + gastosEnvio - cuponAplicado;
 
-    // 6) Crear PDF en memoria con pdfkit
+    // 6) Crear PDF
+    console.log('Generando PDF...');
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
-    const writableStreamBuffer = new streamBuffers.WritableStreamBuffer({ initialSize: (100 * 1024), incrementAmount: (10 * 1024) });
+    const writableStreamBuffer = new streamBuffers.WritableStreamBuffer({ 
+      initialSize: (100 * 1024), 
+      incrementAmount: (10 * 1024) 
+    });
 
     doc.pipe(writableStreamBuffer);
 
-    // Header: company info
+    // Header
     const companyName = 'SpaceSound';
     const logoPath = path.join(__dirname, '..', 'uploads', 'logo.png');
     const slogan = 'La ciudad donde la música nunca deja de girar';
 
-    // Draw logo if present
     try {
       if (fs.existsSync(logoPath)) {
         doc.image(logoPath, 50, 45, { width: 80 });
       }
-    } catch (err) {
-      // ignore; continue
-    }
+    } catch (err) {}
 
     doc.fontSize(20).text(companyName, 140, 50);
     doc.fontSize(10).text(slogan, 140, 75);
 
-    // Date / Time
+    // Fecha/Hora
     const now = new Date();
     const date = now.toLocaleDateString();
     const time = now.toLocaleTimeString();
@@ -123,12 +116,11 @@ exports.enviarNotaCompra = async (req, res) => {
     doc.fontSize(12).text(`Email: ${user.correo || ''}`);
     doc.fontSize(12).text(`País de Envío: ${paisUsuario}`);
     
-    // Table header
+    // Tabla
     doc.moveDown();
     doc.fontSize(12).text('Detalles de la compra:', { underline: true });
     doc.moveDown(0.5);
 
-    // Table columns
     const tableTop = doc.y;
     doc.fontSize(10).text('Producto', 50, tableTop);
     doc.text('Precio unidad', 300, tableTop);
@@ -136,12 +128,8 @@ exports.enviarNotaCompra = async (req, res) => {
     doc.text('Subtotal', 450, tableTop);
     doc.moveDown(0.5);
 
-    // Items rows (aligned as columns)
     const colX = { title: 50, price: 300, qty: 380, subtotal: 450 };
     const titleWidth = 240;
-    const priceWidth = 70; // width for price column
-    const qtyWidth = 40; // width for quantity
-    const subtotalWidth = 100; // width for subtotal
 
     items.forEach(item => {
       const precio = Number(item.precio || 0);
@@ -149,28 +137,18 @@ exports.enviarNotaCompra = async (req, res) => {
       const unit = oferta > 0 ? precio * (1 - oferta/100) : precio;
       const lineSubtotal = unit * Number(item.cantidad || 1);
 
-      // Current Y for row
       const y = doc.y;
-
-      // Title (may wrap) - calculate height so next row keeps vertical alignment
       doc.fontSize(10).text(item.titulo, colX.title, y, { width: titleWidth });
+      doc.fontSize(10).text(fmt(unit), colX.price, y, { width: 70, align: 'right' });
+      doc.fontSize(10).text(`${item.cantidad}`, colX.qty, y, { width: 40, align: 'center' });
+      doc.fontSize(10).text(fmt(lineSubtotal), colX.subtotal, y, { width: 100, align: 'right' });
 
-      // Price - right aligned in its column
-      doc.fontSize(10).text(fmt(unit), colX.price, y, { width: priceWidth, align: 'right' });
-
-      // Quantity - centered
-      doc.fontSize(10).text(`${item.cantidad}`, colX.qty, y, { width: qtyWidth, align: 'center' });
-
-      // Subtotal - right aligned in its column
-      doc.fontSize(10).text(fmt(lineSubtotal), colX.subtotal, y, { width: subtotalWidth, align: 'right' });
-
-      // Compute height taken by the title; use it to move to next row properly
       const titleHeight = doc.heightOfString(String(item.titulo), { width: titleWidth, align: 'left' });
-      const rowHeight = Math.max(titleHeight, 12) + 6; // add a small padding
+      const rowHeight = Math.max(titleHeight, 12) + 6;
       doc.y = y + rowHeight;
     });
 
-    // Totals block
+    // Totales
     doc.moveDown(1);
     doc.fontSize(10).text(`Subtotal: ${fmt(subtotal)}`, { align: 'right' });
     doc.text(`Impuestos (${(impuestoRate * 100).toFixed(0)}%): ${fmt(impuestos)}`, { align: 'right' });
@@ -185,7 +163,7 @@ exports.enviarNotaCompra = async (req, res) => {
     doc.moveDown(2);
     doc.fontSize(10).text('Gracias por tu compra. ¡Que disfrutes tu música!', { align: 'center' });
 
-    // End the PDF document and wait for the writable buffer to finish
+    // Finalizar PDF
     doc.end();
     await new Promise((resolve, reject) => {
       writableStreamBuffer.on('finish', resolve);
@@ -197,53 +175,40 @@ exports.enviarNotaCompra = async (req, res) => {
       console.error('PDF generation failed: buffer is empty');
       return res.status(500).json({ success: false, message: 'Error generando PDF' });
     }
-    console.log('PDF generated, size:', pdfBuffer.length);
-    // Optional: save a copy in uploads if DEBUG env flag enabled (helpful for troubleshooting)
-    if (process.env.SAVE_PDF_COPY === '1') {
-      try {
-        const outPath = path.join(__dirname, '..', 'uploads', `nota_compra_${usuario_id}_${Date.now()}.pdf`);
-        fs.writeFileSync(outPath, pdfBuffer);
-        console.log('Saved PDF copy to', outPath);
-      } catch (err) {
-        console.warn('Could not save PDF copy:', err.message);
-      }
-    }
+    
+    console.log(`PDF generado (${pdfBuffer.length} bytes)`);
 
-    // 7) Enviar mail con adjunto PDF
+    // 7) Enviar email con Resend
     const html = `
       <h3>Gracias por tu compra, ${user.nombreCompleto || ''}</h3>
       <p>Adjuntamos la nota de compra en PDF.</p>
       <p>Resumen: Subtotal: ${fmt(subtotal)} | Impuestos: ${fmt(impuestos)} | Envío: ${fmt(gastosEnvio)} | Total: ${fmt(total)}</p>
     `;
 
-    const mailOptions = {
-  from: process.env.EMAIL_FROM 
-    ? `"${process.env.EMAIL_FROM_NAME || companyName}" <${process.env.EMAIL_FROM}>`
-    : `"${companyName}" <${process.env.CORREO_APP || process.env.EMAIL_USER}>`,
-  to: user.correo,
-  subject: `Nota de compra - ${companyName}`,
-  html,
-  attachments: [
-    {
-      filename: `nota_compra_${usuario_id}_${Date.now()}.pdf`,
-      content: pdfBuffer,
-      contentType: 'application/pdf',
-      contentDisposition: 'attachment'
-    }
-  ]
-};
+    const fromAddress = process.env.EMAIL_FROM || 'SoundSpace <talesturntable@gmail.com>';
+    
+    console.log('Enviando email con attachment...');
+    
+    await sendEmailWithAttachment({
+      from: fromAddress,
+      to: user.correo,
+      subject: `Nota de compra - ${companyName}`,
+      html: html,
+      attachments: [
+        {
+          filename: `nota_compra_${usuario_id}_${Date.now()}.pdf`,
+          content: pdfBuffer
+        }
+      ]
+    });
 
-    await transporter.sendMail(mailOptions);
-
-    // 8) Reducir stock en BD (disponibilidad) por la cantidad que se compró
-    // Usamos una transacción para asegurar consistencia
+    // 8) Reducir stock en BD
     try {
       await pool.query('START TRANSACTION');
 
       for (const item of items) {
         const qty = Number(item.cantidad) || 1;
-
-        const [updateResult] = await pool.query(
+        await pool.query(
           `UPDATE productos
            SET disponibilidad = GREATEST(disponibilidad - ?, 0),
                ventas = ventas + ?,
@@ -251,32 +216,32 @@ exports.enviarNotaCompra = async (req, res) => {
            WHERE id = ?`,
           [qty, qty, qty, item.producto_id]
         );
-
-        if (updateResult.affectedRows === 0) {
-          console.warn(`No se actualizó stock/ventas para producto_id ${item.producto_id}`);
-        }
       }
 
       await pool.query('COMMIT');
+      console.log('Stock actualizado correctamente');
     } catch (txErr) {
-      console.error('Error en transacción de actualización:', txErr.message);
+      console.error('Error en transacción:', txErr.message);
       await pool.query('ROLLBACK');
-      return res.status(500).json({ success: false, message: 'Error actualizando inventario/ventas' });
+      return res.status(500).json({ success: false, message: 'Error actualizando inventario' });
     }
 
-    // 9)Limpiar carrito después de compra
+    // 9) Limpiar carrito
     try {
       await pool.query("DELETE FROM carrito WHERE usuario_id = ?", [usuario_id]);
-      console.log(`Carrito del usuario ${usuario_id} limpiado`);
+      console.log(`Carrito limpiado para usuario ${usuario_id}`);
     } catch (err) {
       console.error("Error al limpiar carrito:", err.message);
-      // No detenemos la compra porque el usuario ya pagó y ya se envió el email.
     }
 
     return res.json({ success: true, message: 'Nota enviada correctamente' });
 
   } catch (err) {
-    console.error('Error enviarNotaCompra:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    console.error('Error en enviarNotaCompra:', err.message);
+    console.error('Stack:', err.stack);
+    return res.status(500).json({ 
+      success: false, 
+      message: err.message 
+    });
   }
 };
