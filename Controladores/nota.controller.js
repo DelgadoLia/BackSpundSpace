@@ -6,16 +6,8 @@ const path = require('path');
 const fs = require('fs');
 
 // Create transporter similar to correoControlador
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.CORREO_APP,
-    pass: process.env.PASS_APP
-  },
-  tls: { rejectUnauthorized: false }
-});
+const { createTransporter } = require('../config/email'); // Agrega esta línea
+const transporter = createTransporter(); // Cambia esta línea
 
 // Helper: format currency
 function fmt(n) { return `$${Number(n).toFixed(2)}`; }
@@ -225,19 +217,21 @@ exports.enviarNotaCompra = async (req, res) => {
     `;
 
     const mailOptions = {
-      from: `"${companyName}" <${process.env.CORREO_APP}>`,
-      to: user.correo,
-      subject: `Nota de compra - ${companyName}`,
-      html,
-      attachments: [
-        {
-          filename: `nota_compra_${usuario_id}_${Date.now()}.pdf`,
-          content: pdfBuffer,
-          contentType: 'application/pdf',
-          contentDisposition: 'attachment'
-        }
-      ]
-    };
+  from: process.env.EMAIL_FROM 
+    ? `"${process.env.EMAIL_FROM_NAME || companyName}" <${process.env.EMAIL_FROM}>`
+    : `"${companyName}" <${process.env.CORREO_APP || process.env.EMAIL_USER}>`,
+  to: user.correo,
+  subject: `Nota de compra - ${companyName}`,
+  html,
+  attachments: [
+    {
+      filename: `nota_compra_${usuario_id}_${Date.now()}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf',
+      contentDisposition: 'attachment'
+    }
+  ]
+};
 
     await transporter.sendMail(mailOptions);
 

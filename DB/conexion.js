@@ -7,3 +7,5 @@ const connectionString = process.env.DATABASE_URL + '?ssl={"rejectUnauthorized":
 const pool = mysql.createPool(connectionString);
 
 module.exports = pool;
+
+//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
