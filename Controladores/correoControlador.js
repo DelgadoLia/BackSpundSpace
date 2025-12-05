@@ -57,7 +57,7 @@ exports.enviarContacto = async (req, res) => {
     } else {
       // Nodemailer para otros servicios
       const mailOptions = {
-        from: process.env.EMAIL_FROM || 'SoundSpace <talesturntable@gmail.com>',
+        from: process.env.EMAIL_FROM || 'SoundSpace <onboarding@resend.dev>',
         to: email,
         subject: "En breve te atenderemos ✅",
         html: html
