@@ -28,18 +28,18 @@ const upload = multer({ storage });
 // --- Rutas del Administrador ---
 
 // POST /api/admin/inventario - Crear nuevo producto con subida de imagen
-router.post('/inventario', verificarToken, verificarAdmin, upload.single('imageFile'), administradorController.createProducto);
+router.post('/inventario',  upload.single('imageFile'), administradorController.createProducto);
 
 // GET /api/admin/inventario - Obtener lista de todos los productos
-router.get('/inventario', verificarToken, verificarAdmin, administradorController.getAllProductos);
+router.get('/inventario',  administradorController.getAllProductos);
 
 // GET /api/admin/totalventas - Obtener la suma monetaria total de ventas
-router.get('/totalventas', verificarToken, verificarAdmin, administradorController.getTotalVentas);
+router.get('/totalventas',  administradorController.getTotalVentas);
 
 // PUT /api/admin/inventario/:id - Actualizar un producto (soporta nueva imagen)
-router.put('/inventario/:id', verificarToken, verificarAdmin, upload.single('imageFile'), administradorController.updateProducto);
+router.put('/inventario/:id', upload.single('imageFile'), administradorController.updateProducto);
 
 // DELETE /api/admin/inventario/:id - Eliminar un producto
-router.delete('/inventario/:id', verificarToken, verificarAdmin, administradorController.deleteProducto);
+router.delete('/inventario/:id', administradorController.deleteProducto);
 
 module.exports = router;
