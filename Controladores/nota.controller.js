@@ -185,7 +185,7 @@ exports.enviarNotaCompra = async (req, res) => {
       <p>Resumen: Subtotal: ${fmt(subtotal)} | Impuestos: ${fmt(impuestos)} | Envío: ${fmt(gastosEnvio)} | Total: ${fmt(total)}</p>
     `;
 
-    const fromAddress = process.env.EMAIL_FROM || 'SoundSpace <talesturntable@gmail.com>';
+    const fromAddress = process.env.EMAIL_FROM || 'SoundSpace <onboarding@resend.dev>';
     
     console.log('Enviando email con attachment...');
     

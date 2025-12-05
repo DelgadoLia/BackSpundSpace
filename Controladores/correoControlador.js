@@ -43,7 +43,7 @@ exports.enviarContacto = async (req, res) => {
 
     if (service === 'resend') {
       // Resend API
-      const from = process.env.EMAIL_FROM || 'SoundSpace <talesturntable@gmail.com>';
+      const from = process.env.EMAIL_FROM || 'SoundSpace <onboarding@resend.dev>';
       
       const data = await transporter.emails.send({
         from: from,
@@ -93,7 +93,7 @@ exports.enviarSuscripcion = async (req, res) => {
 
     if (service === 'resend') {
       // Resend API
-      const from = process.env.EMAIL_FROM || 'SoundSpace <talesturntable@gmail.com>';
+      const from = process.env.EMAIL_FROM || 'SoundSpace <onboarding@resend.dev>';
       
       const data = await transporter.emails.send({
         from: from,
@@ -106,7 +106,7 @@ exports.enviarSuscripcion = async (req, res) => {
     } else {
       // Nodemailer
       const mailOptions = {
-        from: process.env.EMAIL_FROM || 'SoundSpace <talesturntable@gmail.com>',
+        from: process.env.EMAIL_FROM || 'SoundSpace <onboarding@resend.dev>',
         to: email,
         subject: "¡Gracias por suscribirte!",
         html: html

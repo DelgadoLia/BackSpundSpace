@@ -19,7 +19,7 @@ const sendEmailWithAttachment = async ({ to, subject, html, from, attachments = 
   try {
     const resend = getResend();
     
-    const fromAddress = from || process.env.EMAIL_FROM || 'SoundSpace <talesturntable@gmail.com>';
+    const fromAddress = from || process.env.EMAIL_FROM || 'SoundSpace <onboarding@resend.dev>';
     
     console.log(`📧 Enviando email con attachment a: ${to}`);
     
