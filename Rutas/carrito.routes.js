@@ -4,15 +4,15 @@ const carritoController = require('../Controladores/carrito.controller');
 const verificarToken = require('../Middleware/verificarToken');
 
 // Añadir o actualizar item en carrito
-router.post('/add', verificarToken, carritoController.addItem);
+router.post('/add', carritoController.addItem);
 
 // Obtener items del carrito por usuario
-router.get('/:usuario_id', verificarToken, carritoController.getItemsByUser);
+router.get('/:usuario_id', carritoController.getItemsByUser);
 
 // Actualizar cantidad
-router.put('/:id', verificarToken, carritoController.updateItem);
+router.put('/:id', carritoController.updateItem);
 
 // Eliminar item
-router.delete('/:id', verificarToken, carritoController.deleteItem);
+router.delete('/:id', carritoController.deleteItem);
 
 module.exports = router;
